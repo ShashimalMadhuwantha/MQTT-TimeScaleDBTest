@@ -1,34 +1,177 @@
-# TimescaleDB Flask API
+# TimescaleDB IoT Sensor Platform
 
-A RESTful API for managing IoT sensor data stored in TimescaleDB.
+A complete IoT sensor data platform with TimescaleDB, MQTT broker, and Flask REST API.
 
-## Setup
+## 🏗️ Architecture
 
-### 1. Install Dependencies
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+│ IoT Sensors │────▶│  Mosquitto  │────▶│  MQTT Consumer  │
+│   (MQTT)    │     │   Broker    │     │  (mqtt_app.py)  │
+└─────────────┘     └─────────────┘     └────────┬────────┘
+                                                 │
+                                                 ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────────┐
+│   Postman   │────▶│  Flask API  │────▶│   TimescaleDB   │
+│   Client    │     │  (app.py)   │     │   (PostgreSQL)  │
+└─────────────┘     └─────────────┘     └─────────────────┘
+```
+
+## 📋 Prerequisites
+
+- **Docker Desktop** - [Download](https://www.docker.com/products/docker-desktop/)
+- **Python 3.10+** - [Download](https://www.python.org/downloads/)
+- **Git** - [Download](https://git-scm.com/downloads)
+
+## 🚀 Quick Start
+
+### Step 1: Clone the Repository
+
+```bash
+git clone <repository-url>
+cd timescale-project
+```
+
+### Step 2: Start Docker Containers
+
+```bash
+docker compose up -d
+```
+
+This starts:
+- **TimescaleDB** on port `5432`
+- **Mosquitto MQTT Broker** on port `1883`
+
+### Step 3: Verify Containers are Running
+
+```bash
+docker ps
+```
+
+Expected output:
+```
+CONTAINER ID   IMAGE                                  PORTS                    NAMES
+xxxx           timescale/timescaledb-ha:pg14-latest   0.0.0.0:5432->5432/tcp   timescaledb
+xxxx           eclipse-mosquitto:2                    0.0.0.0:1883->1883/tcp   mosquitto
+```
+
+### Step 4: Initialize the Database
+
+Connect to TimescaleDB and create the sensor_data table:
+
+```bash
+docker exec -it timescaledb psql -U myuser -d mydb
+```
+
+Run these SQL commands:
+
+```sql
+-- Enable TimescaleDB extension
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+-- Create sensor data table
+CREATE TABLE sensor_data (
+    time        TIMESTAMPTZ       NOT NULL,
+    sensor_id   INT               NOT NULL,
+    temperature DOUBLE PRECISION  NULL,
+    humidity    DOUBLE PRECISION  NULL,
+    PRIMARY KEY (time, sensor_id)
+);
+
+-- Convert to hypertable (TimescaleDB feature)
+SELECT create_hypertable('sensor_data', 'time');
+
+-- Exit psql
+\q
+```
+
+### Step 5: Install Python Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### Step 6: Configure Environment
 
-Edit `.env` file with your database credentials:
+The `.env` file is pre-configured with default values:
 
-```
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=mydb
 DB_USER=myuser
 DB_PASSWORD=mypassword
+MQTT_BROKER=localhost
+MQTT_PORT=1883
+MQTT_TOPIC=sensors/#
 ```
 
-### 3. Run the API
+### Step 7: Start the Flask API
 
 ```bash
 python app.py
 ```
 
-The API will be available at `http://localhost:5000`
+API runs at: `http://localhost:5000`
+
+### Step 8: Start the MQTT Consumer (Optional)
+
+In a new terminal:
+
+```bash
+python mqtt_app.py
+```
+
+This listens for MQTT messages and stores them in TimescaleDB.
+
+## 🧪 Testing
+
+### Test the API
+
+```bash
+# Health check
+curl http://localhost:5000/health
+
+# Get all sensor data
+curl http://localhost:5000/api/sensors
+```
+
+### Test MQTT Publishing
+
+```bash
+python test_mqtt.py
+```
+
+## 📁 Project Structure
+
+```
+timescale-project/
+├── docker-compose.yml    # Docker services configuration
+├── app.py                # Flask REST API
+├── mqtt_app.py           # MQTT subscriber/consumer
+├── test_mqtt.py          # MQTT test publisher
+├── requirements.txt      # Python dependencies
+├── .env                  # Environment variables
+├── README.md             # This file
+└── mosquitto/
+    └── config/
+        └── mosquitto.conf  # MQTT broker configuration
+```
+
+## 🔌 Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| TimescaleDB | 5432 | Time-series database |
+| Mosquitto | 1883 | MQTT broker |
+| Flask API | 5000 | REST API |
+
+## 🔐 Default Credentials
+
+| Service | Username | Password |
+|---------|----------|----------|
+| TimescaleDB | myuser | mypassword |
+| Database | mydb | - |
 
 ## API Endpoints
 
